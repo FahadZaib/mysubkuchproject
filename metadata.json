@@ -1,0 +1,8 @@
+{
+  "name": "Copy of SubKuch.pk - Everything in One Place",
+  "description": "A modern, scalable eCommerce marketplace for Pakistan offering apparel, electronics, beauty products, and more.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

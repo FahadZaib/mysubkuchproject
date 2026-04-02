@@ -1,0 +1,109 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Fields: name (string), email (string), role (string: 'user'|'admin')
+    //
+    // Collection: products
+    // Fields: name (string), description (string), price (number), category (string), stock (number), etc.
+    //
+    // Collection: orders
+    // Fields: customerEmail (string), total (number), items (list), status (string), etc.
+    //
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "Fahadzaib192021@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['name', 'email', 'role']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.email is string && data.role in ['user', 'admin'];
+    }
+
+    function isValidProduct(data) {
+      return data.keys().hasAll(['name', 'price', 'category', 'stock']) &&
+             data.name is string && data.name.size() > 0 &&
+             data.price is number && data.price >= 0 &&
+             data.category is string &&
+             data.stock is number && data.stock >= 0;
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll(['items', 'total', 'customerEmail', 'status']) &&
+             data.items is list &&
+             data.total is number && data.total >= 0 &&
+             data.customerEmail is string &&
+             data.status in ['pending', 'dispatched', 'shipped', 'delivered', 'cancelled'];
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(userId) || isAdmin());
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(userId) || isAdmin());
+    }
+
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /orders/{orderId} {
+      allow get: if true; // Allow anyone to track by ID
+      allow list: if isAdmin() || (isAuthenticated() && resource.data.customerEmail == request.auth.token.email);
+      allow create: if isAuthenticated() && isValidOrder(request.resource.data);
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /team/{memberId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /gallery/{imageId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /slides/{slideId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /queries/{queryId} {
+      allow read: if isAdmin();
+      allow create: if true; // Allow anyone to send a query
+    }
+
+    match /site_config/{configId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}
